@@ -1,143 +1,191 @@
-# GitHub Repository Template
+# Benmap
 
-> A professional starter kit for building consistent GitHub repositories with reusable documentation templates, security policies, GitHub Actions workflows, and best practices for software and cybersecurity projects.
+**Explainable distribution analysis for active and passive network reconnaissance.**
 
----
+Benmap begins with an unusual question: can first-digit distributions help surface
+shared infrastructure, synthetic responders, interception layers, homogeneous
+service deployments, or changes in network behavior?
 
-## Overview
+The project treats Benford's law as one descriptive feature—not a maliciousness
+oracle. It refuses to calculate a Benford score when the underlying population is
+too small, too narrow, too repetitive, bounded by protocol design, or otherwise
+unsuitable.
 
-This repository provides a standardized structure for creating consistent, professional, and well-documented GitHub repositories.
+> **Status:** pre-alpha research tool. The first implementation is an HTTP-focused
+> Nmap NSE collector plus an offline Nmap XML analyzer. Use it only against systems
+> you own or are explicitly authorized to assess.
 
-It includes reusable documentation templates, security policies, GitHub Actions workflows, repository configurations, and recommended best practices for software engineering, DevSecOps, cloud, and cybersecurity projects.
+## What exists now
 
-The goal is to reduce repetitive work while maintaining a consistent, high-quality standard across all repositories.
+- `nse/benmap-http.nse`
+  - Runs against likely HTTP and HTTPS services.
+  - Makes one controlled `HEAD` or bounded `GET` request.
+  - Records application elapsed time, declared content length, complete body size,
+    and Nmap host timing metadata.
+  - Uses structured NSE output so observations remain machine-readable in Nmap XML.
+  - Produces a scan-wide postrule summary with explicit eligibility failures.
+- `benmap` Python CLI
+  - Parses `benmap-http` observations from `nmap -oX` output.
+  - Recalculates eligibility, leading-digit bins, mean absolute deviation (MAD),
+    Jensen-Shannon divergence, and Pearson's chi-square statistic.
+  - Exports observations as JSON, JSON Lines, or CSV.
+  - Has no runtime dependencies outside the Python standard library.
 
----
+## Quick start
 
-## Features
+Requirements:
 
-- Reusable repository templates
-- Standardized README structure
-- GitHub Actions workflows
-- Security policies
-- Documentation templates
-- Markdown linting configuration
-- Dependabot configuration
-- Professional repository structure
-- Ready-to-use repository files
+- Nmap with NSE support
+- Python 3.11 or newer
+- [`uv`](https://docs.astral.sh/uv/) recommended, but not required
 
----
+Clone and prepare the CLI:
 
-## Repository Structure
-
-```text
-.
-├── .github/
-│   ├── workflows/
-│   └── dependabot.yml
-├── assets/
-│   ├── banners/
-│   ├── badges/
-│   ├── logos/
-│   └── screenshots/
-├── docs/
-│   └── screenshots/
-├── templates/
-│   ├── README_TEMPLATE.md
-│   ├── AUTHOR_TEMPLATE.md
-│   ├── CONTRIBUTING_TEMPLATE.md
-│   ├── SECURITY_TEMPLATE.md
-│   ├── ISSUE_TEMPLATE.md
-│   └── PULL_REQUEST_TEMPLATE.md
-├── README.md
-├── LICENSE
-├── CODE_OF_CONDUCT.md
-├── CONTRIBUTING.md
-├── SECURITY.md
-├── markdownlint.json
-└── .gitignore
+```bash
+git clone https://github.com/rainmana/benmap.git
+cd benmap
+uv sync
 ```
 
----
+Run the NSE script directly from the repository. `-sV` helps Nmap identify HTTP on
+nonstandard ports so `shortport.http` selects the service.
 
-## Included Files
+```bash
+nmap -Pn -sV \
+  --script ./nse/benmap-http.nse \
+  --script-args 'benmap-http.method=HEAD,benmap-http.fallback-get=true' \
+  -oX scan.xml \
+  192.0.2.0/24
+```
 
-### Repository Files
+Analyze one measurement:
 
-- README.md
-- LICENSE
-- CODE_OF_CONDUCT.md
-- CONTRIBUTING.md
-- SECURITY.md
-- .gitignore
-- markdownlint.json
+```bash
+uv run benmap analyze scan.xml --feature content_length
+```
 
-### GitHub Configuration
+Export the raw structured observations:
 
-- GitHub Actions workflows
-- Dependabot configuration
-- Issue template
-- Pull request template
+```bash
+uv run benmap observations scan.xml --format jsonl
+uv run benmap observations scan.xml --format csv > observations.csv
+```
 
-### Documentation Templates
+A population that fails the gate still exits successfully and reports the reasons:
 
-- README template
-- Author template
-- Contributing template
-- Security template
+```text
+Benford eligible: no
+eligibility reasons:
+  - sample count 37 is below required 200
+  - numeric span 0.814 orders is below required 2.000
+```
 
----
+That result means **not evaluated**, not “normal.”
 
-## How to Use
+## NSE options
 
-1. Create a new repository using **Use this template**.
-2. Review the available templates in the `templates/` directory.
-3. Replace the generated `README.md` with the contents of `templates/README_TEMPLATE.md`.
-4. Customize the repository files according to your project.
-5. Remove any templates or workflows that are not required.
-6. Add project-specific documentation.
-7. Configure branch protection rules.
-8. Publish your repository.
+| Argument | Default | Purpose |
+| --- | ---: | --- |
+| `benmap-http.path` | `/` | HTTP path to request |
+| `benmap-http.method` | `HEAD` | Initial request method: `HEAD` or `GET` |
+| `benmap-http.fallback-get` | `true` | Use one bounded GET when HEAD fails or lacks `Content-Length` |
+| `benmap-http.max-body-size` | `65536` | Maximum GET body retained; truncated bodies are excluded from complete-size analysis |
+| `benmap-http.timeout` | Nmap-derived | Per-request timeout such as `5s` or `750ms` |
+| `benmap-http.redirects` | `0` | Number of same-origin redirects to follow |
+| `benmap-http.min-samples` | `200` | Minimum positive observations for a Benford calculation |
+| `benmap-http.min-orders` | `2` | Minimum decimal orders of magnitude |
+| `benmap-http.min-unique-values` | `9` | Minimum distinct values |
+| `benmap-http.min-unique-ratio` | `0.05` | Minimum fraction of distinct values |
+| `benmap-http.show-digits` | `false` | Include all nine digit bins in post-scan output |
 
----
+Nmap's ordinary `http.host`, `http.useragent`, and related HTTP-library arguments
+remain available.
 
-## Roadmap
+## Measurements and guardrails
 
-Planned future improvements include:
+The initial collector examines quantities generated by interactions with services:
 
-- Additional README templates for different project types
-- Docker project template
-- Python project template
-- Node.js project template
-- Terraform project template
-- DevSecOps laboratory template
-- Repository publishing checklist
-- Documentation style guide
+- HTTP request elapsed time
+- Declared HTTP content length
+- Complete decoded and raw response-body sizes
+- Nmap smoothed RTT, RTT variance, and probe timeout as clearly labelled
+  experimental features
 
----
+Benmap intentionally does **not** run classical Benford analysis over port numbers,
+IP-address octets, status codes, TTLs, protocol identifiers, certificate dates,
+software versions, or other assigned and tightly bounded values.
 
-## Contributing
+Before Benford metrics are calculated, the default policy requires:
 
-Contributions, suggestions, and improvements are welcome.
+1. At least 200 positive, finite, complete observations.
+2. At least two decimal orders of magnitude between the minimum and maximum.
+3. At least nine distinct values.
+4. At least a 5% unique-value ratio.
+5. Enough samples that the expected count for the rarest leading digit is at least
+   five, even when the configured minimum is lowered.
 
-Please read the `CONTRIBUTING.md` guidelines before submitting changes.
+The analyzer also reports duplicate concentration, the dominant value and its
+share, and a scale-sensitivity diagnostic. Those ordinary distribution signals can
+remain useful when classical Benford analysis is rejected.
 
----
+Read [the statistical method](docs/statistical-method.md) for the precise formulas
+and interpretation rules.
 
-## Author
+## Architecture
 
-**Roberto Delgado**
+```text
+Nmap + benmap-http.nse
+        │
+        ├── human-readable per-port output
+        ├── structured Nmap XML observations
+        └── scan-wide eligibility summary
+                     │
+                     ▼
+              benmap CLI
+        eligibility │ metrics │ export
+                     │
+                     ▼
+       future baselines and correlation
+```
 
-*Cybersecurity Engineer*
+The planned passive side uses the same analysis core:
 
-Cybersecurity professional focused on cloud and infrastructure security, DevSecOps, vulnerability management, and security automation.
+```text
+Wireshark Lua tap ─┐
+TShark field export ├──► normalized observations ─► Benmap analysis
+PCAP/Zeek flows ───┘
+```
 
-This repository is part of my technical portfolio, featuring hands-on projects that demonstrate secure engineering practices across cloud environments, Infrastructure as Code, container security, CI/CD, and security automation.
+See [the design document](docs/design.md) for the component boundaries and roadmap.
 
-> **Practical cybersecurity. Secure automation. Continuous learning.**
+## Development
 
----
+Run the Python unit tests:
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
+Run the CLI against the included fixture:
+
+```bash
+uv run benmap analyze tests/fixtures/nmap-benmap.xml \
+  --feature content_length \
+  --format json
+```
+
+CI also installs Nmap, launches a deterministic localhost HTTP fixture, executes
+the NSE script, and verifies the resulting XML through the Python parser.
+
+## Project principles
+
+- **Measure first, interpret second.** Preserve the raw observation and its context.
+- **Reject invalid populations.** “Not evaluated” is a real and valuable result.
+- **Explain every ranking.** Show the feature, cohort, exclusions, and contributors.
+- **Benchmark the weird idea.** Compare Benford-derived features against duplicate
+  ratio, entropy, and ordinary distribution drift.
+- **Never equate deviation with compromise.** Findings are investigative leads.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+Benmap is released under the [MIT License](LICENSE).

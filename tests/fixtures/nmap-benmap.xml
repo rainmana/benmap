@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun scanner="nmap" args="nmap -sV --script benmap-http" start="0" startstr="fixture" version="7.95" xmloutputversion="1.05">
+  <host>
+    <status state="up" reason="localhost-response" reason_ttl="0"/>
+    <address addr="192.0.2.10" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="fixture.example" type="user"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="443">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="https" tunnel="ssl" method="table" conf="3"/>
+        <script id="benmap-http" output="fixture">
+          <elem key="schema">benmap.http.observation.v1</elem>
+          <elem key="target">192.0.2.10</elem>
+          <elem key="hostname">fixture.example</elem>
+          <elem key="port">443</elem>
+          <elem key="protocol">tcp</elem>
+          <elem key="service">https</elem>
+          <elem key="tls">1</elem>
+          <elem key="path">/</elem>
+          <elem key="method">GET</elem>
+          <elem key="success">1</elem>
+          <elem key="status">200</elem>
+          <elem key="elapsed_us">18421</elem>
+          <elem key="total_elapsed_us">19700</elem>
+          <elem key="attempts">2</elem>
+          <elem key="fallback_used">1</elem>
+          <elem key="content_length">4096</elem>
+          <elem key="body_bytes">4096</elem>
+          <elem key="raw_body_bytes">4096</elem>
+          <elem key="body_bytes_observed">4096</elem>
+          <elem key="raw_body_bytes_observed">4096</elem>
+          <elem key="body_truncated">0</elem>
+          <elem key="nmap_srtt_us">1123</elem>
+          <elem key="nmap_rttvar_us">340</elem>
+          <elem key="nmap_timeout_us">2483</elem>
+          <elem key="content_type">text/html</elem>
+          <elem key="server">fixture/1.0</elem>
+        </script>
+      </port>
+    </ports>
+  </host>
+  <postscript>
+    <script id="benmap-http" output="summary">
+      <elem key="schema">benmap.http.summary.v1</elem>
+    </script>
+  </postscript>
+  <runstats>
+    <finished time="0" timestr="fixture" elapsed="0.00" summary="fixture" exit="success"/>
+    <hosts up="1" down="0" total="1"/>
+  </runstats>
+</nmaprun>
