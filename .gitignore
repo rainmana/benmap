@@ -1,33 +1,39 @@
-# Operating System
+# Operating systems
 .DS_Store
 Thumbs.db
 
 # Editors
 .vscode/
 .idea/
+*.swp
 
-# Logs
-*.log
-
-# Environment variables
+# Secrets and local configuration
 .env
 .env.*
+!.env.example
 
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+.venv/
 
-# Node.js
-node_modules/
-
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.*
-
-# Coverage
-coverage/
-
-# Temporary files
+# Logs and temporary output
+*.log
 *.tmp
-*.swp
+*.pcap
+*.pcapng
+*.xml
+!tests/fixtures/*.xml
+
+# Benmap local state
+*.sqlite
+*.sqlite3
