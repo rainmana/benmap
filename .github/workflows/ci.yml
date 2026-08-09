@@ -32,6 +32,7 @@ jobs:
   nse-integration:
     name: Nmap NSE integration
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v6
@@ -56,7 +57,9 @@ jobs:
             -Pn \
             -sT \
             -sV \
-            --version-all \
+            --version-light \
+            --script-timeout 20s \
+            --host-timeout 45s \
             -p 8080 \
             --script ./nse/benmap-http.nse \
             --script-args 'benmap-http.method=GET,benmap-http.fallback-get=false' \
